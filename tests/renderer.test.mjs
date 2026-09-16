@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {WASM} from '../public/src/raster-data.js';
+import {MeshBuilder,normalize,dot,cross} from '../public/src/geometry.js';
+import {buildRoom,dynamicRoom} from '../public/src/hotel3d.js';
+import {Game} from '../public/src/game.js';
+import {createScene,LEVELS} from '../public/src/scene.js';
+const instantiate=()=>new WebAssembly.Instance(new WebAssembly.Module(Buffer.from(WASM,'base64'))).exports;
+function setup(e,b,cam=[10.7,3.1,9.6,4.8,1.25,3.4]){new Float32Array(e.memory.buffer,e.vertices(),e.maxVertices()*9).set(b.v);new Float32Array(e.memory.buffer,e.materials(),512).set(b.materials);new Float32Array(e.memory.buffer,e.config(),32).set([...cam,1,1.8]);}
+const imageHash=(e,w,h)=>createHash('sha256').update(new Uint8Array(e.memory.buffer,e.image(),w*h*4)).digest('hex');
+test('embedded 3D renderer instantiates with zero JavaScript imports',()=>{const m=new WebAssembly.Module(Buffer.from(WASM,'base64'));assert.equal(WebAssembly.Module.imports(m).length,0);assert.equal(instantiate().maxVertices(),160000);});
+test('all authored 3D hotel scenarios have finite, bounded geometry and materials',()=>{for(const l of LEVELS){const g=new Game(createScene(l.id)),{builder:b,m}=buildRoom(g.scene);dynamicRoom(b,m,g);assert.equal(b.v.length%27,0);assert.ok(b.v.length/9<160000);assert.ok(b.materials.length<=512);assert.ok(b.v.every(Number.isFinite));for(let i=8;i<b.v.length;i+=9)assert.ok(Number.isInteger(b.v[i])&&b.v[i]>=0&&b.v[i]%64<b.materials.length/8&&Math.floor(b.v[i]/64)<=15);}});
+test('rounded geometry has normalized normals',()=>{const b=new MeshBuilder();b.box(0,0,0,2,1,3,0,.1);for(let i=0;i<b.v.length;i+=9)assert.ok(Math.abs(Math.hypot(...b.v.slice(i+3,i+6))-1)<.001);});
+test('depth buffer draws near triangle over later far triangle',()=>{const b=new MeshBuilder();const red=b.material('#ff2020'),blue=b.material('#2020ff');b.tri([-1,-1,0],[1,-1,0],[0,1,0],red);b.tri([-1,-1,-1],[1,-1,-1],[0,1,-1],blue);const e=instantiate();setup(e,b,[0,0,3,0,0,0]);e.render(2,80,80,0,0);const pix=new Uint8Array(e.memory.buffer,e.image(),80*80*4);const k=(40*80+40)*4;assert.ok(pix[k]>pix[k+2]);assert.ok(Math.abs(e.sampleDepth(40,40)-1/3)<.001);});
+test('baked room is restored byte-for-byte when dynamic frame is empty',()=>{const {builder:b}=buildRoom(createScene());const e=instantiate();setup(e,b);e.bake(b.v.length/27,160,100,1,1);const a=imageHash(e,160,100);e.dynamic(0);assert.equal(imageHash(e,160,100),a);});
+test('dynamic 3D robot overlays change the baked image without a game-state change',()=>{const g=new Game(),before=structuredClone(g.robot),{builder:b,m}=buildRoom(g.scene),e=instantiate();setup(e,b);e.bake(b.v.length/27,240,160,1,1);const hash=imageHash(e,240,160),d=new MeshBuilder();dynamicRoom(d,m,g);new Float32Array(e.memory.buffer,e.vertices(),e.maxVertices()*9).set(d.v);e.dynamic(d.v.length/27);assert.notEqual(imageHash(e,240,160),hash);assert.deepEqual(g.robot,before);});
+test('perspective near-plane clipping handles a triangle crossing behind the camera',()=>{const b=new MeshBuilder();b.material('#ffcc44');b.tri([-1,-1,0],[1,-1,0],[0,3,2],0);const e=instantiate();setup(e,b,[0,0,1,0,0,0]);assert.doesNotThrow(()=>e.render(1,100,100,0,0));let count=0;for(let y=0;y<100;y++)for(let x=0;x<100;x++)if(e.sampleDepth(x,y)>0)count++;assert.ok(count>100);});
+test('overview removes only the architectural ceiling, not tasks or movable props',()=>{const s=createScene('checkout'),before=structuredClone(s);const roof=buildRoom(s),open=buildRoom(s,{ceiling:false});assert.ok(roof.builder.v.length>open.builder.v.length);assert.deepEqual(s,before);});
+test('camera horizontal basis is orthonormal',()=>{const F=normalize([-5,-1,-7]),R=normalize(cross(F,[0,1,0])),U=normalize(cross(R,F));assert.ok(Math.abs(dot(R,U))<1e-12);assert.ok(Math.abs(dot(R,F))<1e-12);});

@@ -1,0 +1,50 @@
+# Opt-in EXAMPLE for a separate GOODBOT repository. Not installed automatically.
+# After choosing a new destination, copy to .github/workflows/pages.yml.
+name: GOODBOT test and publish
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: goodbot-pages
+  cancel-in-progress: true
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run check && npm test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r tests/requirements.txt && python -m playwright install --with-deps chromium
+      - name: Browser tests over HTTP with source CSP
+        run: |
+          npm start > /tmp/goodbot-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:4174/goodbot/ >/dev/null && break || sleep 1; done
+          python tests/browser.py --renderer gpu --out qa-local/browser
+      - name: Exact standalone apprentice flow
+        run: python tools/standalone.py && python tests/apprentice_browser.py --out qa-local/apprentice
+      - run: npm run package:site
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  publish:
+    needs: test-build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4

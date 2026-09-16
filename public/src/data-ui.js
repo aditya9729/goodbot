@@ -1,0 +1,35 @@
+import { ContactBench, TACTILE_CONFIG } from './tactile.js';
+import { zipFiles, downloadBlob } from './zip.js';
+export function createDataStudio({recorder,getGame,getRenderer,open,close,notify,isStarted}){
+ const $=id=>document.getElementById(id);let bench=new ContactBench(),benchActive=false,benchSamples=[],benchBytes=0,benchStart=0,benchStopReason=null,accumulator=0,tick=0;
+ const state=()=>{const s=recorder.summary();$('capture-badge').hidden=!s.active;$('record-btn').textContent=s.active?'● Recording…':'◎ Record episode';$('record-start').disabled=!$('record-agree').checked||s.active||s.busy||s.frames>0||!isStarted()||getGame().status!=='playing';$('record-stop').disabled=!s.active;$('record-export').disabled=s.active||s.busy||s.frames===0;$('record-discard').disabled=s.busy;
+  $('record-status').textContent=s.frames||s.active?`${s.active?'Recording':'Stopped'} · ${s.frames} frames · ${(s.bytes/1048576).toFixed(1)} MiB · ${s.actions} input requests${s.stopReason?' · '+s.stopReason:''}${s.failure?' · '+s.failure:''}. Export, then discard to start a new episode.`:'No recording. Enter a room first, then give separate recording consent.';
+ };
+ const stop=reason=>{recorder.stop(reason,getGame());state();};
+ $('record-btn').onclick=()=>{$('record-agree').checked=false;state();open('record-dialog');};$('record-agree').onchange=state;
+ $('record-start').onclick=()=>{try{if(!$('record-agree').checked||!isStarted()||getGame().status!=='playing')return;recorder.start(getGame(),true);close('record-dialog');state();notify('Recording the virtual game camera locally. Webcam images are not recorded.');}catch(e){$('record-status').textContent=e.message;}};
+ $('record-stop').onclick=()=>stop('user');$('stop-recording-live').onclick=()=>stop('user');
+ $('record-discard').onclick=()=>{recorder.discard();$('record-agree').checked=false;state();};
+ $('record-export').onclick=async()=>{try{$('record-export').disabled=true;const blob=await recorder.export();downloadBlob(blob,'goodbot-episode.zip');$('record-status').textContent='Export created locally. Review the manifest before sharing.';}catch(e){$('record-status').textContent=e.message;}finally{$('record-export').disabled=recorder.active||recorder.busy;}};
+ $('bench-btn').onclick=()=>{stop('contact_bench_opened');$('bench-agree').checked=false;$('bench-record').disabled=true;open('bench-dialog');};
+ $('bench-agree').onchange=()=>$('bench-record').disabled=!$('bench-agree').checked||benchActive;
+ $('bench-record').onclick=()=>{if(!$('bench-agree').checked||benchActive)return;if(benchSamples.length&&!confirm('Discard the previous bench recording and start a new one?'))return;bench=new ContactBench();benchSamples=[];benchBytes=0;benchActive=true;benchStart=performance.now();accumulator=0;benchStopReason=null;$('bench-record').disabled=true;$('bench-export').disabled=true;};
+ const benchStop=reason=>{if(benchActive){benchActive=false;benchStopReason=reason;}$('bench-record').disabled=!$('bench-agree').checked;$('bench-export').disabled=!benchSamples.length;};
+ $('bench-stop').onclick=()=>benchStop('user');
+ // The dialog 'close' event is queued. Release synchronously on the user's close
+ // or Escape action, not after another browser task / render frame has elapsed.
+ const releaseBench=()=>{benchStop('panel_closed');$('bench-agree').checked=false;$('bench-record').disabled=true;};
+ $('bench-dialog').addEventListener('click',event=>{
+  if(event.target.closest?.('[data-close="bench-dialog"]'))releaseBench();
+ },true);
+ $('bench-dialog').addEventListener('cancel',releaseBench,true);
+ $('bench-dialog').addEventListener('close',releaseBench);
+ $('bench-export').onclick=async()=>{if(benchActive||!benchSamples.length)return;try{const manifest={schema:'goodbot.synthetic_bench_episode.v1',source:'analytic_fixture_not_gameplay',config:TACTILE_CONFIG,stop_reason:benchStopReason,samples:benchSamples.length,privacy:{local_only:true,webcam:false},format:'samples.jsonl; pressure arrays row-major float numbers in Pa; per-pad force N',limitations:['No physics engine. The block pose is prescribed.','This is not a tactile recording of hotel tasks.','Force is modeled by a spring-damper; footprint is an assumed Gaussian.','No measured tactile, shear/slip, joint torque, noise, or calibration.']};downloadBlob(await zipFiles([{name:'manifest.json',data:JSON.stringify(manifest,null,2)},{name:'samples.jsonl',data:benchSamples.join('\n')+'\n'}]),'goodbot-synthetic-contact-bench.zip');}catch(e){$('bench-status').textContent=e.message;}};
+ function paintPads(sample){for(let p=0;p<2;p++){const s=sample.pads[p],c=$(p?'pad-right':'pad-left').getContext('2d');for(let y=0;y<16;y++)for(let x=0;x<16;x++){const a=Math.max(0,Math.min(1,s.pressure_Pa[y*16+x]/60000));c.fillStyle=`rgb(${Math.round(12+a*229)},${Math.round(31+a*151)},${Math.round(32+a*64)})`;c.fillRect(x*10,y*10,10,10);}$(p?'force-right':'force-left').textContent=s.normal_force_N.toFixed(3)+' N';}}
+ function paintBench(sample){const c=$('bench-view').getContext('2d'),d=sample.executed_indentation_m/.004;c.clearRect(0,0,640,210);c.fillStyle='#101e1b';c.fillRect(0,0,640,210);c.strokeStyle='#293f35';for(let x=20;x<640;x+=30){c.beginPath();c.moveTo(x,25);c.lineTo(x,185);c.stroke();}c.fillStyle='#748575';c.fillRect(0,103,170+d*24,18);c.fillRect(470-d*24,103,170,18);
+  c.fillStyle='#c8b793';c.beginPath();c.roundRect(258,54,124,111,8);c.fill();c.fillStyle='#9aaf9a';for(const x of [184+d*35,416-d*35]){c.beginPath();c.roundRect(x,62,38,96,9);c.fill();}c.fillStyle='#ece5d3';c.font='12px system-ui';c.fillText('LEFT PAD',152,37);c.fillText('FIXED BLOCK',276,37);c.fillText('RIGHT PAD',415,37);c.font='11px system-ui';c.fillText(sample.contact?'MODELED CONTACT · NO TENSION':'SEPARATED · ZERO MODELED FORCE',203,190);}
+ document.addEventListener('visibilitychange',()=>{if(document.hidden){stop('tab_hidden');benchStop('tab_hidden');}});addEventListener('pagehide',()=>{stop('pagehide');benchStop('pagehide');});
+ return {frame(dt){tick+=dt;if(tick>.2){tick=0;state();$('backend-label').textContent=getRenderer().gpu?'WEBGL2 · METALLIC / ROUGHNESS':'CPU / WASM · WEBGL2 UNAVAILABLE';}
+  if(!$('bench-dialog').open||document.hidden)return;accumulator+=Math.min(dt,.05);let last=bench.last;while(accumulator>=1/60){accumulator-=1/60;last=bench.step(1/60,Number($('bench-indent').value)/1000,Number($('bench-offset').value)/1000);if(benchActive){const line=JSON.stringify({...last,wall_elapsed_s:(performance.now()-benchStart)/1000});if(benchSamples.length>=1800||benchBytes+line.length>32*1024*1024){benchStop('capture_limit');}else{benchSamples.push(line);benchBytes+=line.length;}}}if(last){paintPads(last);paintBench(last);$('bench-mm').textContent=(last.executed_indentation_m*1000).toFixed(2)+' mm';$('bench-status').textContent=`${benchActive?'Recording':'Idle / stopped'} · ${benchSamples.length} samples · ${last.contact_phase}. Independent synthetic fixture, not hotel contact data.`;}
+ },summary:()=>({active:benchActive,samples:benchSamples.length,force_N:bench.last?.pads[0].normal_force_N||0,contact:bench.last?.contact||false})};
+}

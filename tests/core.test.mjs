@@ -1,0 +1,45 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import { Game } from '../public/src/game.js';import { LEVELS,createScene,dailyScene,sceneSnapshot } from '../public/src/scene.js';
+import { compilePlan,readScene,taskDone,protectedIntact,checkFeasibility } from '../public/src/director.js';
+import { walkable,findPath,visibleReach } from '../public/src/navigation.js';
+import { HandPointer } from '../public/src/hands.js';
+const settle=g=>{for(let i=0;i<2000;i++){g.update(.05);if(!g.pending&&!g.path.length){for(let j=0;j<12;j++)g.update(.05);return;}}throw new Error('Action did not settle');};
+function solve(g){for(let i=0;i<100;i++){const t=g.plan.tasks.find(t=>!taskDone(g.scene,t));if(!t)return;let id=t.kind==='place'?(g.robot.held===t.entity?t.destination:t.entity):t.kind==='defer'?'defer-room':t.kind==='takeover'?'takeover':t.entity;assert.equal(g.command(id),true,g.lastMessage);settle(g);}throw new Error('Unsolved');}
+for(const l of LEVELS)test(`${l.id}: ordinary commands complete the entire scene`,()=>{const g=new Game(createScene(l.id));solve(g);assert.equal(g.finish(),true);assert.equal(g.status,'won');assert.ok(protectedIntact(g.scene));});
+test('100 seeded scene variants have a checked route plan',()=>{for(let i=0;i<100;i++)for(const l of LEVELS)assert.ok(compilePlan(createScene(l.id,'seed'+i)).proof.ok);});
+test('daily room is deterministic by UTC date',()=>{assert.deepEqual(dailyScene('2026-09-15'),dailyScene('2026-09-15'));});
+test('unknown levels do not silently replace a scene',()=>assert.throws(()=>createScene('fake')));
+test('tasks come from actual scene contents, not a fixed card count',()=>{const s=createScene('welcome');s.objects.pop();assert.equal(readScene(s).length,1);});
+test('Do Not Disturb produces only a deferral, not entry tasks',()=>{const g=new Game(createScene('quiet'));assert.deepEqual(g.plan.tasks.map(t=>t.kind),['defer']);assert.equal(g.travel({x:6,z:5}),false);assert.equal(g.command('cupboard'),false);assert.equal(g.scene.cupboardOpen,false);});
+test('a room cannot be finished before its goals',()=>{const g=new Game();assert.equal(g.finish(),false);});
+test('guest items are never picked up',()=>{const g=new Game(createScene('stayover'));const before=structuredClone(g.scene.initialProtected);assert.equal(g.command('keepsake'),false);assert.equal(g.robot.held,null);assert.deepEqual(before,g.scene.initialProtected);assert.ok(protectedIntact(g.scene));});
+test('flagging a found item does not move it',()=>{const g=new Game(createScene('checkout'));assert.ok(g.command('keepsake'));settle(g);assert.ok(g.entity('keepsake').flagged);assert.ok(protectedIntact(g.scene));});
+test('closed cupboard rejects picking a hidden towel',()=>{const g=new Game(createScene('checkout'));assert.equal(g.command('towel-0'),false);assert.equal(g.robot.held,null);});
+test('a model cannot authorize opening a denied room',()=>{const s=createScene('quiet');assert.throws(()=>compilePlan(s,{title:'Enter',brief:'',taskIds:['open-cupboard']}));});
+test('the robot cannot pick another object with full hands',()=>{const g=new Game();g.command('cup-a');settle(g);assert.equal(g.robot.held,'cup-a');assert.equal(g.command('cup-b'),false);});
+test('a wrong destination cannot score or release cargo',()=>{const g=new Game();g.command('cup-a');settle(g);assert.equal(g.command('fresh-shelf'),false);assert.equal(g.robot.held,'cup-a');assert.equal(g.deliveries,0);});
+test('the requested cup destination is enforced even for another cup-compatible tray',()=>{const g=new Game();g.command('cup-a');settle(g);assert.equal(g.command('tea-tray'),false);});
+test('settling support and height are required, not just overlap',()=>{const g=new Game();const t=g.plan.tasks.find(t=>t.entity==='cup-a'),o=g.entity('cup-a'),z=g.entity('cart-tray');Object.assign(o,{x:z.x,z:z.z,location:z.id,settled:2,y:z.y+2});assert.equal(taskDone(g.scene,t),false);o.y=z.y;o.held=true;assert.equal(taskDone(g.scene,t),false);o.held=false;o.settled=.1;assert.equal(taskDone(g.scene,t),false);o.settled=.6;assert.equal(taskDone(g.scene,t),true);});
+test('undo restores the last interaction without altering guest items',()=>{const g=new Game();g.command('cup-a');settle(g);assert.ok(g.robot.held);assert.ok(g.undo());assert.equal(g.robot.held,null);assert.equal(g.entity('cup-a').location,'source');assert.equal(g.undo(),false);});
+test('cancel halts a route but never drops a held item',()=>{const g=new Game();g.command('cup-a');settle(g);g.command('cart-tray');g.cancel();assert.equal(g.robot.held,'cup-a');assert.equal(g.path.length,0);});
+test('physics clamps a long frame instead of jumping through furniture',()=>{const g=new Game();g.travel({x:6,z:8});const before={...g.robot};g.update(100);assert.ok(Math.hypot(g.robot.x-before.x,g.robot.z-before.z)<.15);});
+test('blocked furniture and exterior cells reject navigation',()=>{const s=createScene();assert.equal(walkable(s,{x:3,z:2}),false);assert.equal(walkable(s,{x:-1,z:2}),false);assert.equal(findPath(s,s.start,{x:3,z:2}),null);});
+test('navigation proof rejects an impossible fully blocked scene',()=>{const s=createScene();s.furniture.push({id:'wall-test',x:6,z:5,w:12,d:10});assert.throws(()=>compilePlan(s),/route/);});
+test('unreachable arm target is rejected',()=>{const s=createScene();assert.equal(visibleReach(s,s.start,s.objects[0]),false);});
+test('rescue requires takeover before commands',()=>{const g=new Game(createScene('rescue'));assert.equal(g.command('chair'),false);assert.ok(g.command('takeover'));assert.ok(g.command('chair'));});
+test('invalid proposals cannot remove required tasks or add fake objects',()=>{const s=createScene();for(const ids of [[],['place-cup-a'],['place-cup-a','move-guest-book']])assert.throws(()=>compilePlan(s,{title:'test',brief:'a',taskIds:ids}));});
+test('duplicate task IDs are rejected',()=>{const s=createScene();assert.throws(()=>compilePlan(s,{title:'Test',brief:'test',taskIds:['place-cup-a','place-cup-a']}));});
+test('prerequisite ordering is compiler-controlled despite reversed model order',()=>{const s=createScene('checkout'),ids=readScene(s).map(t=>t.id).reverse(),p=compilePlan(s,{title:'A lovely reset',brief:'Carefully prepare the room.',taskIds:ids});assert.equal(p.tasks[0].id,'open-cupboard');assert.ok(p.proof.ok);});
+test('capacity overflows fail plan validation',()=>{const s=createScene();s.zones.find(z=>z.id==='cart-tray').capacity=1;assert.throws(()=>compilePlan(s),/full/);});
+test('model briefing is bounded text, not HTML',()=>{const s=createScene();const p=compilePlan(s,{title:'<b>Kindness</b>',brief:'<img src=x>',taskIds:readScene(s).map(t=>t.id)});assert.ok(!p.title.includes('<'));assert.ok(!p.brief.includes('<'));assert.throws(()=>compilePlan(s,{title:'x'.repeat(71),brief:'',taskIds:readScene(s).map(t=>t.id)}));});
+test('virtual scene snapshot has no webcam, hand, identity or credential fields',()=>{const s=JSON.stringify(sceneSnapshot(createScene()));for(const k of ['apiKey','landmarks','cameraFrame','guestName','microphone'])assert.ok(!s.includes(k));});
+function hand(x=.5,pinch=false){const a=Array.from({length:21},()=>({x,y:.5}));a[0]={x,y:.8};a[9]={x,y:.5};a[4]={x:x-.1,y:.4};a[8]={x:x+(pinch?-.08:.1),y:.4};return [a];}
+test('hand pointer requires stable calibration',()=>{const h=new HandPointer();for(let i=0;i<24;i++)h.feed(hand(),i*60+10);assert.ok(h.calibrated);assert.equal(h.feed([],1600).click,false);});
+test('pinch generates one debounced choice and releases before repeat',()=>{const h=new HandPointer();for(let i=0;i<24;i++)h.feed(hand(),i*60+10);let clicks=0;for(let i=0;i<25;i++)clicks+=h.feed(hand(.5,true),1600+i*60).click?1:0;assert.equal(clicks,1);h.feed(hand(),3300);h.feed(hand(.5,true),3400);assert.equal(h.feed(hand(.5,true),3600).click,true);});
+test('missing and invalid hands cannot click',()=>{const h=new HandPointer();assert.equal(h.feed(null,200).valid,false);const a=hand();a[0][5].x=NaN;assert.equal(h.feed(a,300).valid,false);assert.ok(h.stale(900));});
+test('hand input stale threshold is independent of frames',()=>{const h=new HandPointer();h.feed(hand(),1000);assert.equal(h.stale(1200),false);assert.equal(h.stale(1500),true);});
+
+test('practice bot retries a bounded script without moving the obstacle',()=>{const g=new Game(createScene('rescue')),chair=structuredClone(g.entity('chair'));for(let i=0;i<200;i++){g.update(.05);assert.ok(g.robot.x<=g.scene.start.x+.301);}assert.deepEqual(g.entity('chair'),chair);assert.equal(g.scene.rescueTaken,false);assert.equal(g.robot.held,null);});
+
+test('an object only partly on a tray does not complete its task',()=>{const g=new Game(),o=g.entity('cup-a'),z=g.entity('cart-tray'),t=g.plan.tasks.find(t=>t.entity===o.id);Object.assign(o,{x:z.x+z.w/2-.01,z:z.z,y:z.y,location:z.id,settled:1});assert.equal(taskDone(g.scene,t),false);});
+test('direct input also bounds unusually large frame duration',()=>{const g=new Game(),start={...g.robot};g.direct(1,0,10);assert.ok(Math.hypot(g.robot.x-start.x,g.robot.z-start.z)<=.136);});

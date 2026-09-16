@@ -1,0 +1,31 @@
+/* The mentor experience: compact instrumentation, clear next actions, no fake IQ. */
+#apprentice-btn {border-color:#738f78;color:#d4e3cc}#meet-nori{border-color:#8da787;color:#d2ddc4}
+#apprentice-panel{border:1px solid #657c62;border-radius:9px;padding:16px;background:linear-gradient(145deg,#293d32,#172a23);margin:-4px 0 24px;box-shadow:0 5px 25px #0002}
+.mentor-heading{display:flex;align-items:center;gap:10px}.nori-avatar{display:grid;place-items:center;width:46px;height:42px;background:#aac4a4;border-radius:12px 12px 8px 8px;color:#244533;font:19px monospace;box-shadow:inset 0 -4px 0 #7c9c78}
+.mentor-heading small{display:block;letter-spacing:.15em;font-size:7px;color:#adbea6}.mentor-heading strong{display:block;font:25px Georgia;color:#e9e3cc}.mentor-heading #nori-state{font-size:8px;margin-left:auto;max-width:83px;text-align:right;color:#d0ceaa}
+#nori-message{font-size:12px;line-height:1.55;color:#d4ddc7;min-height:55px;margin:13px 0}
+.mentor-metrics{display:flex;gap:18px;color:#b2bfa7;font-size:9px;border-top:1px solid #50664b4d;padding:10px 0}.mentor-metrics b{font:20px Georgia;color:#f4e6c6;display:block}
+.mentor-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.mentor-grid button{background:#304b38;border-color:#657f5c;padding:10px 8px;font-size:11px;text-align:left}.mentor-grid button:nth-child(4){background:#c7b287;color:#1b2d22;border-color:#c7b287;font-weight:600}
+.mentor-takeover{width:100%;margin-top:8px;background:#713a2c;border-color:#c38a64;color:#fff2df;font-size:11px}
+#mentor-intent{margin:12px 0;padding:12px;background:#1a3027;border-left:3px solid #c6b185}#mentor-intent small,#mentor-destinations small{display:block;font-size:7px;letter-spacing:.13em;color:#adb998}#mentor-intent strong{display:block;font:17px/1.3 Georgia;color:#e1dec4;margin:8px 0}#mentor-intent span{font-size:9px;color:#aaba9d}
+.mentor-inline{display:flex;gap:7px;margin-top:8px}.mentor-inline button{flex:1;font-size:9px;padding:8px 5px;background:#263b2d}
+#mentor-destinations{margin-top:14px}#destination-options{display:grid;gap:5px;margin-top:8px}#destination-options button{text-align:left;font-size:10px;background:#4c4b30;border-color:#928254;padding:9px}
+.mentor-notebook{margin-top:14px;border-color:#526747}.mentor-notebook p{font-size:10px;line-height:1.65;color:#b2bfa4}.mentor-notebook label{display:flex;gap:7px;align-items:center;font-size:10px}.mentor-notebook input[type=checkbox]{width:14px;height:14px}.mentor-notebook summary{font-size:10px;color:#b8c6aa}
+#forget-nori{margin-top:7px;background:transparent;color:#c0af94}#mentor-result{border-top:1px solid #657953;margin-top:14px;padding-top:12px}#mentor-result strong{font:19px Georgia;color:#e3d9b3}#mentor-result p{font-size:10px;line-height:1.6;color:#b4c2a5}
+#mentor-hub{width:680px}#mentor-hub h2{font-size:37px}#mentor-lessons{display:grid;gap:9px;margin:22px 0}.mentor-lesson{text-align:left;padding:16px;background:#283a2c;display:grid;grid-template-columns:80px 1fr;gap:6px 12px}.mentor-lesson small{font-size:9px;letter-spacing:.14em;color:#c7b688;align-self:center}.mentor-lesson strong{font:22px Georgia;color:#e6dfc5}.mentor-lesson span{grid-column:2;font-size:11px;color:#b7c5aa;line-height:1.6}#teaching-consent{width:535px}
+body.mentor-mode main{grid-template-columns:minmax(0,1fr) 365px}body.mentor-mode aside{padding:24px 18px}body.mentor-mode #director{display:none}body.mentor-mode #deliver-btn{display:none!important}body.mentor-mode #carry-help{display:none}body.mentor-mode #mission-title{font-size:26px}body.mentor-mode #mission-story{font-size:11px}
+body.mentor-mode #carry-card{margin-top:14px}body.mentor-mode .task{min-height:44px;padding:9px}body.mentor-mode #mentor-result[hidden]{display:none}
+@media(max-width:1100px){body.mentor-mode main{grid-template-columns:minmax(0,1fr) 320px}#apprentice-panel{padding:13px}#nori-message{font-size:11px}}
+@media(max-width:680px){body.mentor-mode main{display:flex}#apprentice-panel{margin:0 0 22px;padding:16px}.mentor-grid{grid-template-columns:1fr 1fr}.mentor-grid button{min-height:42px}.mentor-lesson{grid-template-columns:60px 1fr;padding:13px}.mentor-lesson strong{font-size:20px}#mentor-hub h2{font-size:29px}#apprentice-btn{font-size:8px;padding:7px 5px}header nav{gap:3px}.mentor-metrics b{display:inline;margin-right:4px}.mentor-heading #nori-state{max-width:95px}}
+
+/* What changed: a real diff between two retained fits on one room. */
+#mentor-changed{margin-top:10px;padding:12px 13px;border-radius:12px;
+  background:rgba(120,190,255,.07);border:1px solid rgba(120,190,255,.28)}
+#mentor-changed small{display:block;letter-spacing:.14em;font-size:9px;opacity:.7;margin-bottom:8px}
+.changed-line{margin:5px 0;font-size:12.5px;line-height:1.5}
+.changed-tag{display:inline-block;min-width:26px;padding:1px 6px;margin-right:6px;border-radius:5px;
+  font:700 10px/1.6 ui-monospace,monospace;letter-spacing:.06em}
+.changed-tag.old{background:rgba(255,255,255,.12);opacity:.75}
+.changed-tag.new{background:rgba(130,230,150,.22);color:#bdf5c8}
+.changed-why{margin:8px 0 0;font-size:12px;line-height:1.55;opacity:.85}
+.mentor-dismiss{margin-top:10px;font-size:11px;padding:5px 12px}

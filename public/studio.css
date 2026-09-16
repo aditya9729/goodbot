@@ -1,0 +1,12 @@
+/* Studio 03: the room remains primary; measurement controls are opt-in. */
+header nav{gap:5px}header nav button{padding:8px 10px}#backend-label{position:absolute;left:22px;top:60px;padding:5px 8px;color:#dbe0d2;background:#16271dbb;border-radius:3px;font:9px system-ui;pointer-events:none;max-width:48%}
+#capture-badge{position:absolute;top:98px;left:22px;z-index:2}#capture-badge button{background:#762d26;color:#fff3ea;border-color:#cf7765;font-size:11px}
+#record-dialog{width:650px}#bench-dialog{width:700px}#bench-view{width:100%;height:auto;background:#101e1b;border:1px solid #35493e;border-radius:8px}.record-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.record-actions button{font-size:12px}
+.tactile-maps{display:flex;gap:24px;justify-content:center;margin:20px 0}.tactile-maps>div{display:grid;justify-items:center;gap:9px}.tactile-maps span{font-size:10px;letter-spacing:.12em;color:#b5c1a8}.tactile-maps canvas{width:150px;height:150px;image-rendering:pixelated;border:1px solid #536248;border-radius:4px}.tactile-maps output{font-size:18px;font-variant-numeric:tabular-nums;color:#dfcda4}
+#bench-dialog .range{gap:12px}#bench-dialog .range input{width:55%}#bench-status,#record-status{font-size:11px}
+@media(max-width:850px){.hotel-name{display:none}.brand-sub{display:none}header nav button{font-size:10px}#backend-label{font-size:8px;left:14px;top:87px}.view-help{display:none}}
+@media(max-width:680px){header{height:auto;min-height:64px;flex-wrap:wrap;padding:10px 12px;gap:8px}header nav{flex:1;justify-content:flex-end;flex-wrap:wrap}.brand{font-size:11px}.brand img{width:22px}.brand-sub{display:none}header nav button{font-size:8px;padding:6px}#capture-badge{top:117px;left:12px}#backend-label{left:12px;font-size:7px}.tactile-maps{gap:12px}.tactile-maps canvas{width:115px;height:115px}#bench-dialog{padding:18px}.record-actions button{font-size:10px;padding:9px}.world-badge{max-width:53%}}
+
+/* Robot-mode help is visible on small screens, too. */
+.center-view{position:absolute;top:68px;right:22px;background:#1b2822eb;color:#dedbcb;border:1px solid #83937870;padding:8px 11px;font-size:10px;z-index:2}
+@media(max-width:680px){.center-view{top:90px;right:12px}.view-help{display:block;bottom:52px;right:12px;left:12px;font-size:8px;text-align:center}.footer-controls{display:none}}

@@ -1,0 +1,6 @@
+# Build output and local test evidence are regenerated, never committed.
+dist/
+qa-local/
+evidence/
+node_modules/
+.DS_Store
